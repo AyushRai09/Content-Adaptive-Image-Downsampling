@@ -41,7 +41,7 @@ for i=1:wi
             for x=i-2*rx+1:i+2*rx-1
                 for y=j-2*ry+1:j+2*ry-1
                     if(x>=1 && y>=1 && x<=wi && y<=hi)
-                        R{k}=[R{k}, x+(y-1)*wi];
+                        R{k}=[R{k}, (x-1)*wi+y];
                     end
                 end
             end
@@ -49,62 +49,63 @@ for i=1:wi
     end
 end
 w=zeros(wo*ho,wi*hi);
+gamma=zeros(n,wi*hi);
 
 while vyas>=1
-    ayflag=0;
+    
 %expectation step
-for k=1:n
-    for i=1:size(R{k},2)
-        pi = [floor((R{k}(i)-1)/wi)+1, mod(R{k}(i)-1,wi)+1].';        
-        temp_ci = rgb2lab(in(floor((R{k}(i)-1)/wi) +1, mod(R{k}(i)-1,wi)+1,:));
-        tmp=pi-mu{k};
-        ci = [temp_ci(:,:,1)/100,(temp_ci(:,:,2)+87)/186,(temp_ci(:,:,3)+108)/203].';
-        lhv= -1/2*(tmp.')*inv(sigma{k})*tmp
-        rhv= ((ci(1,1)-vk{k}(1)).^2+ (ci(2,1)-vk{k}(2)).^2 +(ci(3,1)-vk{k}(3)).^2)/(2*sig(k)*sig(k))
-        if(isfinite(exp(lhv-rhv))==1)
-            w(k,i)=exp(lhv - rhv);
+for k=1:wo*ho
+    for i=1:wi*hi
+        if(ismember(i,R{k}(:))==1)
+            h1=floor((i-1)/wi)+1;h2=mod(i-1,wi)+1;
+            pi = [h1, h2].';        
+            temp_ci = rgb2lab(in(h1,h2,:));
+            tmp=pi-mu{k};
+            ci = [temp_ci(:,:,1)/100,(temp_ci(:,:,2)+87)/186,(temp_ci(:,:,3)+108)/203].';
+            lhv= -1/2*(tmp.')*inv(sigma{k})*tmp
+            rhv= ((ci(1,1)-vk{k}(1)).^2+ (ci(2,1)-vk{k}(2)).^2 +(ci(3,1)-vk{k}(3)).^2)/(2*sig(k)*sig(k))
+            if(isfinite(exp(lhv-rhv))==1)
+                w(k,i)=exp(lhv - rhv);
+            end
         end
     end
-    wsum=sum(w(k,:));
-    for i=1:size(R{k},2)
-        if(isfinite(w(k,i)/wsum) == 1)
+    tempsum=0;
+    for i=1:wi*hi
+        if(ismember(i,R{k})==1)
+            tempsum=tempsum+w(k,i);
+        end
+    end
+    wsum=tempsum;
+    for i=1:wi*hi
+        if(isfinite(w(k,i)/wsum) == 1 && ismember(i,R{k}(:))==1)
             w(k,i)=w(k,i)/wsum;
         end
     end
 end
-% if(vyas==2)
-%     break;
-% end
 
-% for k=1:wo*ho
-%     wsum=sum(w(k,:));
-%     for j=1:wi*hi
-%         if(isfinite(w(k,j))==0)
-%             w(k,j)=0;
-%         end
-%     end
-% end
-
-
- gamma=zeros(n,wi*hi);
  for i=1:wi*hi
      for k=1:wo*ho
          if (ismember(i,R{k}(:)) && sum(w(:,i))~=0)
+%                  w(k,i)
+%                  sum(w(:,i))
+%                  k
+%                  i
                 gamma(k,i)=w(k,i)/sum(w(:,i));
          end
      end
  end
 
  %Maximization step
- for k=1:n
+ for k=1:wo*ho
      wsum=sum(gamma(k,:));
      num1=[0 0; 0 0];
      num2=[0 ; 0];
      num3=[0; 0; 0];
 %      for i=wi*hi
-     for i=1:size(R{k},2)
-         pi = [floor((R{k}(i)-1)/wi)+1, mod(R{k}(i)-1,wi)+1].';        
-         temp_ci = rgb2lab(in(floor((R{k}(i)-1)/wi) +1, mod(R{k}(i)-1,wi)+1,:));
+     for i=1:wi*hi
+         h1=floor((i-1)/wi)+1;h2=mod(i-1,wi)+1;
+         pi = [h1, h2].';        
+         temp_ci = rgb2lab(in(h1,h2,:));
          tmp=pi-mu{k};
          ci = [temp_ci(:,:,1)/100,(temp_ci(:,:,2)+87)/186,(temp_ci(:,:,3)+108)/203].';
          num1=num1+gamma(k,i)*tmp*(tmp.');
@@ -120,7 +121,7 @@ end
  %Correction step
  
  %Spatial constraints
- for k=1:n
+ for k=1:wo*ho
       x0=cpmu{k}(1);y0=cpmu{k}(2);
       n4(1,1)=x0+1;n4(1,2)=y0+1;
       n4(2,1)=x0+1;n4(2,2)=y0-1;
@@ -143,7 +144,7 @@ end
       end
  end
   
- for k=1:n
+ for k=1:wo*ho
    if(mu{k}(1)/2 + mubar{k}(1)/2 < xk(k)+rx/4)
      mu{k}(1) = xk(k)+rx/4;
    elseif(mu{k}(1)/2 + mubar{k}(1)/2 > xk(k)-rx/4)
@@ -159,7 +160,7 @@ end
       
          
 %Constrain spatial variance
- for k=1:n
+ for k=1:wo*ho
      xmax=0.1;xmin=0.05;
      [U,S,V]=svd(sigma{k});
      if(S(1,1)<0.05)
@@ -176,7 +177,7 @@ end
  end
  %Shape constraints
  
- for k=1:n
+ for k=1:wo*ho
      x0=cpmu{k}(1);y0=cpmu{k}(2);
      n8(1,1)=x0-1;n8(1,2)=y0-1;
      n8(2,1)=x0-1;n8(2,2)=y0;
@@ -191,15 +192,19 @@ end
          s=0;
          if(n8(ngbr,1)>0 && n8(ngbr,2)>0 && n8(ngbr,1)<wo+1 && n8(ngbr,2)<ho+1) 
              d=[n8(ngbr,1)-x0 , n8(ngbr,2)-y0].';
-             for i=1:size(R{k},2)
-                  pi = [floor((R{k}(i)-1)/wi)+1, mod(R{k}(i)-1,wi)+1].';
-                  tmp=pi-mu{k};
-                  s=s+gamma(k,i)*max(0,(tmp.')*d).^2;
+             for i=1:wi*hi
+                  if(ismember(i,R{k}(:))==1)
+                      pi = [floor((i-1)/wi)+1, mod(i-1,wi)+1].';
+                      tmp=pi-mu{k};
+                      s=s+gamma(k,i)*max(0,(tmp.')*d).^2;
+                  end
              end
              n1=wo*(n8(ngbr,1)-1)+n8(ngbr,2);
              f=0;
-             for i=1:size(R{k},2)
-                 f=f+gamma(k,i)*gamma(n1,i);
+             for i=1:wi*hi
+                 if(ismember(i,R{k})==1)
+                    f=f+gamma(k,i)*gamma(n1,i);
+                 end
              end 
              if ( s>0.2*rx || f<0.08)
                  sig(k)=1.1*sig(k);
@@ -210,57 +215,32 @@ end
  end
  
  %Break condition
-%   if(vyas>1)
-%         
-%         diff = 0.035
-%          flag=0;
-%           %Difference in M
-%           for k=1:n
-%             for i=1:2
-%                 if(abs(cpymu{k}(i,1)-mu{k}(i,1))>1)
-%                    display "Hello1"
-%                     flag=1;break;
-%                 end
-%             end
-%             for i=1:2
-%               if(abs(cpysigma{k}(i,1)-sigma{k}(i,1))>diff || abs(cpysigma{k}(i,2)-sigma{k}(i,2))>diff )
-%                    display "Hello2"
-%                 flag=1;break;
-%               end
-%             end
-%             
-%             for i=1:3
-%               if(abs(cpyvk{k}(i,1)-vk{k}(i,1))>0.04)
-%                  display "cpyvk:"
-%                  abs(cpyvk{k}(i,1)-vk{k}(i,1))
-%                 flag=1;break;
-%               end
-%             end
-%           end
-%           if(flag==0)
-%               break;
-%           end
-%  end
-%   cpymu=mu;cpysigma=sigma;cpyvk=vk;
-%  vyas=vyas+1
-%  if vyas > 3
-%      break;
-%  end
+    if(vyas>30)
+        convergeFlag=1;
+         for k=1:wo*ho
+             if(abs(vk{k}(1,1)-cpyvk{k}(1,1))>0.002 || abs(vk{k}(2,1)-cpyvk{k}(2,1))>0.002 || abs(vk{k}(3,1)-cpyvk{k}(3,1))>0.002)
+                 convergeFlag=0;
+                 break;
+             end
+         end
+         if(convergeFlag)
+                  break;
+         end
+   end
+    cpyvk=vk;
+    vyas=vyas+1
 end
 
 %%%%Main Code for final image%%%%%%
-for clr=1:3
-    for k=1:wo*ho
-        vyasum=0;
-        for j=1:size(R{k},2)
-            floor((R{k}(j)-1)/wi)+1
-            mod(R{k}(j)-1,wi)
-              vyasum=vyasum + in(floor((R{k}(j)-1)/wi)+1, mod(R{k}(j)-1,wi)+1,clr)*w(k,j);
-        end
-        (k-1)/wo+1
-        mod(k,wo)
-        finalImage(floor((k-1)/wo)+1,mod(k,wo)+1, clr)=vyasum;
-    end
+%  ci = [temp_ci(:,:,1)/100,(temp_ci(:,:,2)+87)/186,(temp_ci(:,:,3)+108)/203].';
+for i=1:size(vk,2)
+    l=(vk{i}(1,1)*100);
+    a=(vk{i}(2,1)*186-87);
+    b=(vk{i}(3,1)*203-108);
+    rgb=255*lab2rgb([l a b]);
+    m=floor((i-1)/wo)+1;
+    n=mod(i-1,wo)+1;
+    finalImage(m,n,1)=rgb(1,1);finalImage(m,n,2)=rgb(1,2);finalImage(m,n,3)=rgb(1,3);
 end
 imshow(uint8(in));figure
 imshow(uint8(finalImage));
