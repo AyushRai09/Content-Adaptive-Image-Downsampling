@@ -1,1 +1,1 @@
-This folder contains the code in 'downsampling.m' which is written in Matlab. Sample image on which the code runs is also present in this folder named by the name'test1.png'. Make sure that input image size is lesser than 40X40 pixels.
+This folder contains the code in 'downsampling.m' which is written in Matlab. Sample image on which the code runs is also present in this folder named 'test1.png'. Make sure that input image size is lesser than 40X40 pixels.
